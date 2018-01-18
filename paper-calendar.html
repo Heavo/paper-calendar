@@ -1,0 +1,543 @@
+<link rel="import" href="../polymer/polymer-element.html">
+
+<dom-module id="paper-calendar">
+  <template>
+    <style>
+      :host {
+        box-sizing: border-box;
+        display: block;
+        width: 100%;
+        height: var(--height, 512px);
+        font-family: 'Roboto', 'Noto', sans-serif;
+      }
+      #calendar {
+        box-sizing: border-box;
+        height: 100%;
+        border: 1px solid var(--divider-color, #dbdbdb);
+        /* border-left: 1px solid var(--divider-color, #dbdbdb);
+        border-right: 1px solid var(--divider-color, #dbdbdb); */
+      }
+      #top {
+        display: flex;
+        flex-direction: row;
+        height: 72px;
+        width: 100%;
+        border-bottom: 1px solid var(--divider-color, #dbdbdb);
+      }
+      #bottom {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        height: calc(100% - 72px);
+        width: 100%;
+        overflow-y: scroll;
+      }
+      #interval-spacer {
+        width: var(--interval-width, 64px);
+      }
+      #scroll-spacer {
+        opacity: 0;
+        overflow-y: scroll;
+      }
+      #day-header {
+        box-sizing: border-box;
+        flex-grow: 1;
+        position: relative;
+        display: flex;
+        flex-direction: row;
+        height: 72px;
+      }
+      #interval-header {
+        box-sizing: border-box;
+        width: var(--interval-width, 64px);
+        overflow: hidden;
+      }
+      #grid {
+        box-sizing: border-box;
+        position: relative;
+        display: flex;
+        flex-direction: row;
+        width: calc(100% - var(--interval-width, 64px));
+      }
+      .font-caption {
+        overflow: hidden;
+        color: var(--primary-text-color, #212121);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 20px;
+        font-size: 12px;
+        font-weight: 400;
+        letter-spacing: 0.011em;
+      }
+      .font-header {
+        overflow: hidden;
+        color: var(--primary-text-color, #212121);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 40px;
+        font-size: 34px;
+        font-weight: 400;
+        letter-spacing: -.01em;
+      }
+      .header-day__item {
+        box-sizing: border-box;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        width: calc((100% / var(--days, 7)));
+        border-left: 1px solid var(--divider-color, #dbdbdb);
+      }
+      .header-day__item:last-child {
+        border-right: 1px solid var(--divider-color, #dbdbdb);
+      }
+      .header-day__item__week-day {
+        box-sizing: border-box;
+        width: 100%;
+        padding-left: 8px;
+        color: var(--primary-text-color, #212121);
+      }
+      .header-day__item__month-day {
+        box-sizing: border-box;
+        width: 100%;
+        padding-left: 8px;
+        color: var(--primary-text-color, #212121);
+      }
+      .header-interval__item {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        /* min-height: var(--cell-height, 32px); */
+      }
+      .header-interval__item__label {
+        box-sizing: border-box;
+        text-align: center;
+        /* transform: translateY(calc(50% + 5px)); */
+      }
+      .grid__day {
+        box-sizing: border-box;
+        flex-direction: column;
+        width: calc(100% / var(--days, 7));
+      }
+      .grid__day__interval {
+        box-sizing: border-box;
+        flex-grow: 1;
+        /* min-height: var(--cell-height, 32px); */
+        border-left: 1px solid var(--divider-color, #dbdbdb);
+        border-bottom: 1px solid var(--divider-color, #dbdbdb);
+      }
+      .event {
+        box-sizing: border-box;
+        position: absolute;
+        background-color: var(--primary-color, #3f51b5);
+        width: calc((100% / var(--days, 7)));
+        padding: 4px;
+      }
+      .event__title {
+        color: var(--dark-theme-text-color, #ffffff);
+      }
+
+                    
+    </style>
+
+    <div id="calendar">
+      <div id="top">
+        <div id="interval-spacer"></div>
+        <div id="day-header"></div>
+        <div id="scroll-spacer"></div>
+      </div>
+      <div id="bottom">
+        <div id="interval-header"></div>
+        <div id="grid"></div>
+      </div>
+      
+    </div>
+
+  </template>
+  <script>
+    /**
+     * `paper-calendar`
+     * Calendar of events
+     *
+     * @customElement
+     * @polymer
+     * @demo demo/index.html
+     */
+    class PaperCalendar extends Polymer.Element {
+      static get is() {
+        return 'paper-calendar'
+      }
+
+      static get properties () {
+        return {
+          days: {
+            type: Number,
+            value: 7,
+            observer: '__observeDays'
+          },
+          week: {
+            type: Number,
+            value: moment().isoWeek()
+          },
+          locale: {
+            type: String,
+            value: 'en',
+            observer: '__observeLocale'
+          },
+          startTime: {
+            type: String,
+            value: '00:00:00'
+          },
+          endTime: {
+            type: String,
+            value: '24:00:00'
+          },
+          stepTime: {
+            type: String,
+            value: '00:15:00'
+          },
+          ppm: {
+            type: Number,
+            value: 2,
+            observer: '__observePpm'
+          },
+          events: {
+            type: Array,
+            value: () => {
+              return [
+                {
+                  start: '2018-01-14T08:00:00-02:00',
+                  end: '2018-01-14T08:15:00-02:00',
+                  title: 'Evento 1',
+                  id: 1
+                }, {
+                  start: '2018-01-15T08:50:00-02:00',
+                  end: '2018-01-15T08:55:00-02:00',
+                  title: 'Evento 2',
+                  id: 2
+                }, {
+                  start: '2018-01-16T08:00:00-02:00',
+                  end: '2018-01-16T09:00:00-02:00',
+                  title: 'Evento 3',
+                  id: 3
+                }, {
+                  start: '2018-01-15T08:12:00-02:00',
+                  end: '2018-01-15T08:49:00-02:00',
+                  title: 'Evento 4',
+                  id: 4
+                }
+              ]
+            }
+          },
+          __weekDays: {
+            type: Array
+          },
+          __intervals: {
+            type: Array
+          }
+        }
+      }
+
+      static get observers () {
+        return [
+          '__observeCalendar(days, week, locale, startTime, endTime, stepTime)',
+          '__observeCalendarRendering(__weekDays.*, __intervals.*)',
+          '__observeEvents(events.*)'
+        ]
+      }
+
+
+      __observeLocale (current, previous) {
+        if (moment.locales().indexOf(current) === -1) {
+          throw new Error(`Locale "${current}" is not loaded`)
+        }
+      }
+
+      __observeDays (current, previous) {
+        if (current !== previous) {
+          this.updateStyles({'--days': `${current}`})
+        }
+      }
+
+      __observePpm (current, previous) {
+        if (current !== previous) {
+          this.updateStyles({'--ppm': `${current}px`})
+        }
+      }
+
+      __observeEvents (eventsChanges) {
+        console.log(eventsChanges)
+        const events = eventsChanges.base
+        this.__renderEvents(events, this.__weekDays, this.__intervals)
+      }
+
+      __observeCalendar (days, week, locale, startTime, endTime, stepTime) {
+        const weekDays = this.__getWeekDays(week, days, locale)
+        const intervals = this.__getIntervals(startTime, endTime, stepTime, locale)
+        const diffWeekdays =
+          (JSON.stringify(weekDays) !== JSON.stringify(this.__weekDays))
+        const diffIntervals =
+          (JSON.stringify(intervals) !== JSON.stringify(this.__intervals))
+        if (diffWeekdays && diffIntervals) {
+          this.setProperties({__weekDays: weekDays, __intervals: intervals})
+        } else if (diffWeekdays) {
+          this.setProperties({})
+        } else if (diffIntervals) {
+          this.setProperties({__intervals: intervals})
+        }
+      }
+
+      __observeCalendarRendering (weekDaysChanges, intervalsChanges) {
+        const isUpdatedNeeded = 
+          weekDaysChanges.path !== '__weekDays.length' &&
+          intervalsChanges.path !== '__intervals.length'
+        if (isUpdatedNeeded) {
+          const weekDays = weekDaysChanges.base
+          const intervals = intervalsChanges.base
+          this.__renderDayHeader(weekDays, this.locale)
+          this.__renderIntervalHeader(intervals, this.locale)
+          this.__renderGrid(weekDays, intervals, this.locale)
+          this.__renderEvents(this.events, weekDays, intervals)
+        }
+      }
+
+      __renderDayHeader (days, locale = this.locale) {
+        return new Promise((resolve, reject) => {
+          const elements = days.map((day) => {
+            const weekDay = day.locale(locale).format('ddd')
+            const weekDayText = document.createTextNode(weekDay)
+            const weekDayElement = document.createElement('div')
+            weekDayElement.classList.add('header-day__item__week-day')
+            weekDayElement.classList.add('font-caption')
+            weekDayElement.appendChild(weekDayText)
+            const monthDay = day.locale(locale).format('D')
+            const monthText = document.createTextNode(monthDay)
+            const monthDayElement = document.createElement('div')
+            monthDayElement.classList.add('header-day__item__month-day')
+            monthDayElement.classList.add('font-header')
+            monthDayElement.appendChild(monthText)
+            const dayElement = document.createElement('div')
+            dayElement.classList.add('header-day__item')
+            dayElement.appendChild(weekDayElement)
+            dayElement.appendChild(monthDayElement)
+            return dayElement
+          })
+          resolve(elements)
+        })
+          .then((elements) => {
+            const fragment = elements.reduce((fragment, element) => {
+              fragment.appendChild(element)
+              return fragment
+            }, document.createDocumentFragment())
+            this.$['day-header'].appendChild(fragment)
+          })
+      }
+
+      __renderIntervalHeader (intervals, locale = this.locale) {
+        return new Promise((resolve, reject) => {
+          const dayStart = moment().locale(locale).startOf('day')
+          const elements = intervals
+            .map((interval) => {
+              const start = moment(dayStart).add(interval.start)
+              const end = moment(dayStart).add(interval.end)
+              return {start, end}
+            })
+            .map((interval) => {
+              const diff = interval.end.diff(interval.start)
+              const minutes = moment.duration(diff, 'ms').asMinutes()
+              const format = interval.start.format('HH:mm')
+              const text = document.createTextNode(format)
+              const label = document.createElement('div')
+              label.classList.add('header-interval__item__label')
+              label.classList.add('font-caption')
+              label.appendChild(text)
+              const element = document.createElement('div')
+              element.style.height = `calc(${minutes} * var(--ppm, 2px))`
+              element.classList.add('header-interval__item')
+              element.appendChild(label)
+              return element
+            })
+          resolve(elements)
+        })
+          .then((elements) => {
+            const fragment = elements.reduce((fragment, element) => {
+              fragment.appendChild(element)
+              return fragment
+            }, document.createDocumentFragment())
+            this.$['interval-header'].appendChild(fragment)
+          })
+      }
+
+      __renderGrid (weekDays, intervals, locale = this.locale) {
+        return new Promise((resolve, reject) => {
+          const daysElements = weekDays.map((weekDay) => {
+            const intervalsFragment = intervals
+              .map((interval) => {
+                const start = moment(weekDay).add(interval.start)
+                const end = moment(weekDay).add(interval.end)
+                return {start, end}
+              })
+              .map((interval) => {
+                const diff = interval.end.diff(interval.start)
+                const minutes = moment.duration(diff, 'ms').asMinutes()
+                const startTimestamp = interval.start.toISOString()
+                const endTimestamp = interval.end.toISOString()
+                const element = document.createElement('div')
+                element.style.height = `calc(${minutes} * var(--ppm, 2px))`
+                element.classList.add('grid__day__interval')
+                element.addEventListener('click', (clickEvent) => {
+                  const model = {startTimestamp, endTimestamp}
+                  const intercepted = Object.assign(clickEvent, {model})
+                  this.__handleCellClick(intercepted)
+                })
+                return element
+              })
+              .reduce((fragment, element) => {
+                fragment.appendChild(element)
+                return fragment
+              }, document.createDocumentFragment())
+            const dayElement = document.createElement('div')
+            dayElement.appendChild(intervalsFragment)
+            dayElement.classList.add('grid__day')
+            return dayElement
+          })
+          resolve(daysElements)
+        })
+          .then((elements) => {
+            const fragment = elements.reduce((fragment, element) => {
+              fragment.appendChild(element)
+              return fragment
+            }, document.createDocumentFragment())
+            this.$['grid'].appendChild(fragment)
+          })
+      }
+
+      __renderEvents (events, weekDays, intervals) {
+        return new Promise((resolve, reject) => {
+          const daysLimits = weekDays.map((weekDay) => {
+              const first = intervals[0]
+              const last = intervals[intervals.length - 1]
+              const start = moment(weekDay).add(first.start)
+              const end = moment(weekDay).add(last.end)
+              return {start, end}
+            })
+          resolve(daysLimits)
+        })
+          .then((daysLimits) => {
+            const daysEvents = daysLimits.map((dayLimit) => {
+              const {start, end} = dayLimit
+              return events.filter((event) => {
+                const startBetween = moment(event.start)
+                  .isBetween(start, end, null, '[)')
+                const endBetween = moment(event.end)
+                  .isBetween(start, end, null, '(]')
+                return startBetween || endBetween
+              })
+            })
+            return {daysEvents, daysLimits}
+          })
+          .then(({daysEvents, daysLimits}) => {
+            return Promise.all(daysEvents.map((dayEvents, index) => {
+              const dayLimits = daysLimits[index]
+              return Promise.all(dayEvents.map((event) => {
+                return this.__renderEvent(event, index, dayLimits)
+              }))
+            }))
+          })
+          .then((daysEventsElements) => {
+            const elements = document.querySelectorAll('.event')
+            for (const element of elements) {
+              this.$['grid'].removeChild(element)
+            }
+            const fragment = document.createDocumentFragment()
+            for (const dayEventsElements of daysEventsElements) {
+              for (const eventElement of dayEventsElements) {
+                fragment.appendChild(eventElement)
+              }
+            }
+            this.$['grid'].appendChild(fragment)
+          })
+      }
+
+      __renderEvent (event, column, dayLimit) {
+        return new Promise((resolve, reject) => {
+          const offsetDiff = moment(event.start).diff(dayLimit.start)
+          const heightDiff = moment(event.end).diff(event.start)
+          const offsetMinutes = moment.duration(offsetDiff, 'ms').asMinutes()
+          const heightMinutes = moment.duration(heightDiff, 'ms').asMinutes()
+          const marginLeft = `calc((100% / var(--days, 7)) * ${column})`
+          const titleText = document.createTextNode(event.title)
+          const titleElement = document.createElement('div')
+          titleElement.classList.add('font-caption')
+          titleElement.classList.add('event__title')
+          titleElement.appendChild(titleText)
+          const eventElement = document.createElement('div')
+          eventElement.style.marginTop = `calc(${offsetMinutes} * var(--ppm, 2px))`
+          eventElement.style.height = `calc(${heightMinutes} * var(--ppm, 2px))`
+          eventElement.style.marginLeft = marginLeft
+          eventElement.classList.add('event')
+          eventElement.appendChild(titleElement)
+          eventElement.addEventListener('click', (clickEvent) => {
+            const intercepted = Object.assign(clickEvent, {model: {event}})
+            this.__handleEventClick(intercepted)
+          })
+          resolve(eventElement)
+        })
+      }
+
+      __getWeekDays (week, days, locale = this.locale) {
+        const weekStart = moment().locale(locale).isoWeek(week).startOf('week')
+        const weekDays = [...Array(days).keys()]
+          .map((key) => moment(weekStart).add(key, 'day'))
+        return weekDays
+      }
+
+      __getIntervals (startTime, endTime, stepTime, locale = this.locale) {
+        let intervals = []
+        const stepTimeMilis = moment.duration(stepTime).asMilliseconds()
+        if (stepTimeMilis == 0) {
+          throw new Error('Invalid step duration')
+        } else {
+          const diffDurationMilis = moment.duration(endTime)
+            .subtract(startTime)
+            .asMilliseconds()
+          const intervalsCount = Math.ceil(diffDurationMilis / stepTimeMilis)
+          intervals = [...Array(intervalsCount).keys()]
+            .map((key) => {
+              const start = moment.duration(startTime)
+                .add(key * stepTimeMilis, 'ms')
+              const end = moment.duration(startTime)
+                .add((key + 1) * stepTimeMilis, 'ms')
+              return {start, end}
+            })
+        }
+        return intervals
+      }
+
+      __handleCellClick (clickEvent) {
+        const {start, end} = (clickEvent.model) ? clickEvent.model : {}
+        this.__dispatchCellClick(start, end)
+      }
+
+      __handleEventClick (clickEvent) {
+        const event = (clickEvent.model) ? clickEvent.model.event : null
+        this.__dispatchEventClick(event)
+      }
+
+      __dispatchCellClick (start, end) {
+        const detail = {start, end}
+        const customEvent = new CustomEvent('cell-selection', {detail})
+        this.dispatchEvent(customEvent)
+      }
+
+      __dispatchEventClick (event) {
+        const detail = {event}
+        const customEvent = new CustomEvent('event-selection', {detail})
+        this.dispatchEvent(customEvent)
+      }
+    }
+
+    window.customElements.define(PaperCalendar.is, PaperCalendar)
+  </script>
+</dom-module>

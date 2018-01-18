@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1, initial-scale=1, user-scalable=yes">
+
+    <title>paper-calendar demo</title>
+
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../moment/moment.js"></script>
+    <script src="../../moment/locale/pt-br.js"></script>
+    <script src="../../moment-timezone/builds/moment-timezone-with-data.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,700|Roboto:400,300,300italic,400italic,500,500italic,700,700italic" crossorigin="anonymous"/>
+
+    <link rel="import" href="../../iron-demo-helpers/demo-pages-shared-styles.html">
+    <link rel="import" href="../../iron-demo-helpers/demo-snippet.html">
+    <link rel="import" href="../paper-calendar.html">
+
+
+    <custom-style>
+      <style is="custom-style" include="demo-pages-shared-styles">
+      </style>
+    </custom-style>
+  </head>
+  <body>
+    <div class="vertical-section-container centered">
+      <h3>Basic paper-calendar demo</h3>
+      <demo-snippet>
+        <template>
+          <paper-calendar
+            locale="pt-br"
+            days="5"
+            start-time="08:00:00"
+            end-time="18:00:00"></paper-calendar>
+        </template>
+      </demo-snippet>
+    </div>
+  </body>
+</html>
